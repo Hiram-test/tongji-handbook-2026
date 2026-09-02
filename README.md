@@ -1,9 +1,11 @@
-# 同济大学 · 认知城市实习手册
+# 同济大学 · 认知城市实习手册（可编辑 Word）
 
-点击下面文件即可下载 Word（与手册页面一致，含任务书）：
+**请下载这个文件（文字、表格、填写栏均可直接改）：**
 
-- [handbook.docx](./handbook.docx) （英文文件名，推荐）
+➡️ [handbook-editable.docx](./handbook-editable.docx)
+
+备用文件名：
+- [handbook.docx](./handbook.docx)
 - [认知城市实习_未来基础设施_研学活动手册.docx](./认知城市实习_未来基础设施_研学活动手册.docx)
 
-直接下载：
-https://github.com/Hiram-test/tongji-handbook-2026/raw/main/handbook.docx
+用 Word / WPS 打开后，点文字即可修改。浅色格子是填写栏。
