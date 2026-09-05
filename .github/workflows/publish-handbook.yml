@@ -1,0 +1,49 @@
+name: Publish handbook # 发布完整手册附件。
+on: # 指定本次发布的触发方式。
+  push: # 随本次工作流提交启动。
+    branches: [main] # 在手册主分支运行。
+    paths: [".github/workflows/publish-handbook.yml"] # 仅修改本文件时触发。
+permissions: # 声明发布附件所需权限。
+  contents: write # 允许建立Release并上传附件。
+jobs: # 定义发布任务。
+  publish: # 合并原文件并发布。
+    runs-on: ubuntu-latest # 使用GitHub托管运行器。
+    steps: # 无需第三方Action或checkout。
+      - name: Publish complete Word # 上传完整Word。
+        shell: python {0} # 直接执行标准库Python代码。
+        env: # 使用GitHub自动提供的任务令牌。
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 不需要另行登录。
+        run: | # 保持文件原始内容和字体。
+          import hashlib, json, os, urllib.request, urllib.parse, urllib.error # 导入标准库。
+          repo = os.environ['GITHUB_REPOSITORY'] # 读取当前仓库。
+          commit = os.environ['GITHUB_SHA'] # 固定使用此次提交。
+          name = '工程互联网领域实践团员手册.docx' # 保留完整中文文件名。
+          digest = '2fc83788b3deb558a10855e1e4eea7643b19fa3b410008611720f09773c23af7' # 使用原文件SHA256。
+          data = b'' # 按顺序恢复原始二进制。
+          for i in range(3): # 合并三个上传分块。
+              with urllib.request.urlopen(f'https://raw.githubusercontent.com/{repo}/{commit}/handbook-upload/part-{i}.bin', timeout=120) as response: # 下载当前提交的精确分块。
+                  data += response.read() # 连接原始字节。
+          assert hashlib.sha256(data).hexdigest() == digest # 确认文件逐字节一致。
+          headers = {'Authorization':'Bearer '+os.environ['GITHUB_TOKEN'], 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28'} # 使用标准任务认证。
+          def api(url, method='GET', body=None, mime='application/json'): # 调用GitHub发布接口。
+              body = json.dumps(body).encode('utf-8') if isinstance(body, dict) else body # 保留附件原始二进制。
+              request = urllib.request.Request(url, data=body, headers={**headers,'Content-Type':mime}, method=method) # 构造API请求。
+              with urllib.request.urlopen(request, timeout=300) as response: # 执行上传或读取。
+                  return json.load(response) # 读取API回执。
+          root = os.environ['GITHUB_API_URL']+'/repos/'+repo # 使用当前GitHub API。
+          tag = 'handbook-20260905-final' # 给本次定稿建立固定下载地址。
+          try: # 复用已经创建的同名发布。
+              release = api(root+'/releases/tags/'+tag) # 检查是否已经建立Release。
+          except urllib.error.HTTPError as error: # 仅处理发布尚不存在的情况。
+              if error.code != 404: # 保留其他真实错误。
+                  raise # 不掩盖上传失败。
+              release = api(root+'/releases','POST',{'tag_name':tag,'target_commitish':commit,'name':'工程互联网领域实践团员手册','body':'SHA256: '+digest,'draft':False,'prerelease':False}) # 创建公开下载发布。
+          existing = next((a for a in release.get('assets',[]) if a['name']==name),None) # 避免重复创建同名附件。
+          if existing: # 安全处理已完成的重跑。
+              assert existing.get('digest') == 'sha256:'+digest and existing['size']==len(data) # 确认已有附件完全一致。
+              asset = existing # 使用已上传的原文件。
+          else: # 上传本次原始Word文件。
+              url = release['upload_url'].split('{',1)[0]+'?'+urllib.parse.urlencode({'name':name}) # 获取正式附件上传地址。
+              asset = api(url,'POST',data,'application/vnd.openxmlformats-officedocument.wordprocessingml.document') # 上传完整Word。
+          assert asset['state']=='uploaded' and asset['size']==len(data) # 确认上传完成及文件大小。
+          print(asset['browser_download_url'],flush=True) # 输出直接下载链接。
